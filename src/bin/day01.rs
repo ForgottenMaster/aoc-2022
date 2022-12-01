@@ -18,6 +18,7 @@ macro_rules! calorie_count_iter {
     };
 }
 
+#[cfg(not(tarpaulin))]
 fn main() {
     println!("Part 1 => {}", part_1(INPUT));
     println!("Part 2 => {}", part_2(INPUT));
@@ -76,10 +77,5 @@ mod tests {
 
         // Assert
         assert_eq!(output, EXPECTED);
-    }
-
-    #[test]
-    fn test_main() {
-        main();
     }
 }
