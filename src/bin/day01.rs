@@ -77,4 +77,9 @@ mod tests {
         // Assert
         assert_eq!(output, EXPECTED);
     }
+
+    #[test]
+    fn test_main() {
+        main();
+    }
 }
