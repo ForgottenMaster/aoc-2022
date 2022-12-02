@@ -18,7 +18,7 @@ cargo run --release --bin day01
 |Puzzle|Part 1|Part 2|
 |:-:|:-:|:-:|
 |[Day 1: Calorie Counting](https://adventofcode.com/2022/day/1)|:heavy_check_mark:|:heavy_check_mark:|
-|Day 2|:heavy_check_mark:|:heavy_check_mark:|
+|[Day 2: Rock Paper Scissors](https://adventofcode.com/2022/day/2)|:heavy_check_mark:|:heavy_check_mark:|
 |Day 3|:x:|:x:|
 |Day 4|:x:|:x:|
 |Day 5|:x:|:x:|
