@@ -128,4 +128,24 @@ mod tests {
         // Assert
         assert_eq!(EXPECTED, output);
     }
+
+    #[test]
+    fn test_part_2_additional() {
+        // Arrange
+        const INPUT: &str = "
+        A Z
+        A X
+        B Z
+        B Y
+        C Y
+        C X
+        ";
+        const EXPECTED: u32 = 33;
+
+        // Act
+        let output = part_2(INPUT);
+
+        // Assert
+        assert_eq!(EXPECTED, output);
+    }
 }
