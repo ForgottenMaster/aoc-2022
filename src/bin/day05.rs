@@ -8,23 +8,47 @@ type Command = (usize, usize, usize); // (amount, from_index, to_index)
 #[cfg(not(tarpaulin))]
 fn main() {
     println!("Part 1 => {}", part_1(INPUT));
+    println!("Part 2 => {}", part_2(INPUT));
 }
 
 fn part_1(input: &str) -> String {
     let (mut stacks, commands) = extract_stacks_and_commands(input);
-    apply_commands_to_stacks(commands.into_iter(), &mut stacks);
+    apply_commands_to_stacks_single(commands.into_iter(), &mut stacks);
     stacks
         .into_iter()
         .map(|mut stack| stack.pop().unwrap())
         .collect()
 }
 
-fn apply_commands_to_stacks(commands: impl Iterator<Item = Command>, stacks: &mut [Stack]) {
+fn part_2(input: &str) -> String {
+    let (mut stacks, commands) = extract_stacks_and_commands(input);
+    apply_commands_to_stacks_multi(commands.into_iter(), &mut stacks);
+    stacks
+        .into_iter()
+        .map(|mut stack| stack.pop().unwrap())
+        .collect()
+}
+
+fn apply_commands_to_stacks_single(commands: impl Iterator<Item = Command>, stacks: &mut [Stack]) {
     commands.for_each(|(amount, from_index, to_index)| {
         (0..amount).for_each(|_| {
             let elem = stacks[from_index].pop().unwrap();
             stacks[to_index].push(elem);
         });
+    });
+}
+
+fn apply_commands_to_stacks_multi(commands: impl Iterator<Item = Command>, stacks: &mut [Stack]) {
+    commands.for_each(|(amount, from_index, to_index)| {
+        // extend the destination with the {amount} elements from the end of the source.
+        let source_stack = &stacks[from_index];
+        let slice_from_index = source_stack.len() - amount;
+        let elements_to_extend_with = source_stack[slice_from_index..].to_vec();
+        stacks[to_index].extend(elements_to_extend_with);
+
+        // shrink source to remove the elements we've moved.
+        let source_stack = &mut stacks[from_index];
+        source_stack.resize(slice_from_index, ' ');
     });
 }
 
@@ -133,6 +157,18 @@ move 1 from 1 to 2
 
         // Act
         let output = part_1(INPUT);
+
+        // Assert
+        assert_eq!(&output, EXPECTED);
+    }
+
+    #[test]
+    fn test_part_2() {
+        // Arrange
+        const EXPECTED: &str = "MCD";
+
+        // Act
+        let output = part_2(INPUT);
 
         // Assert
         assert_eq!(&output, EXPECTED);
