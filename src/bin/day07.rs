@@ -7,6 +7,7 @@ const INPUT: &str = include_str!("../input/day07.txt");
 #[cfg(not(tarpaulin))]
 fn main() {
     println!("Part 1 => {}", part_1(INPUT));
+    println!("Part 2 => {}", part_2(INPUT));
 }
 
 type EntryPointer = Rc<RefCell<Entry>>;
@@ -29,17 +30,13 @@ enum EntryType {
 }
 
 impl Entry {
-    fn for_each(&self, func: impl Fn(&Self) + Copy) {
-        func(self);
+    fn for_each_directory(&self, func: impl Fn(&Self) + Copy) {
         if let EntryType::Directory { children } = &self.entry_type {
-            children.values().for_each(|child| {
-                child.borrow().for_each(func);
-            })
+            func(self);
+            children
+                .values()
+                .for_each(|child| child.borrow().for_each_directory(func));
         }
-    }
-
-    fn is_directory(&self) -> bool {
-        matches!(self.entry_type, EntryType::Directory { .. })
     }
 
     fn size(&self) -> u32 {
@@ -55,15 +52,28 @@ impl Entry {
 fn part_1(input: &str) -> u32 {
     let dir_structure = calculate_dir_structure(input);
     let total_size = Cell::new(0);
-    dir_structure.borrow().for_each(|entry| {
-        if entry.is_directory() {
-            let size = entry.size();
-            if size <= 100_000 {
-                total_size.replace(total_size.get() + size);
-            }
+    dir_structure.borrow().for_each_directory(|entry| {
+        let size = entry.size();
+        if size <= 100_000 {
+            total_size.replace(total_size.get() + size);
         }
     });
     total_size.get()
+}
+
+fn part_2(input: &str) -> u32 {
+    let dir_structure = calculate_dir_structure(input);
+    let total_used = dir_structure.borrow().size();
+    let total_unused = 70_000_000 - total_used;
+    let required_to_free = 30_000_000 - total_unused;
+    let minimal_size = Cell::new(u32::MAX);
+    dir_structure.borrow().for_each_directory(|entry| {
+        let size = entry.size();
+        if size >= required_to_free {
+            minimal_size.replace(std::cmp::min(minimal_size.get(), size));
+        }
+    });
+    minimal_size.get()
 }
 
 fn calculate_dir_structure(input: &str) -> EntryPointer {
@@ -170,6 +180,18 @@ mod tests {
 
         // Act
         let output = part_1(INPUT);
+
+        // Assert
+        assert_eq!(output, EXPECTED);
+    }
+
+    #[test]
+    fn test_part_2() {
+        // Arrange
+        const EXPECTED: u32 = 24933642;
+
+        // Act
+        let output = part_2(INPUT);
 
         // Assert
         assert_eq!(output, EXPECTED);
