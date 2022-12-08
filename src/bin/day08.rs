@@ -20,7 +20,13 @@ mod forest {
     }
 
     impl Forest {
-        pub fn iter(&self) -> impl Iterator<Item = ((usize, usize), u8)> + '_ {
+        pub fn iter_visible(&self) -> impl Iterator<Item = ((usize, usize), u8)> + '_ {
+            self.iter().filter(|(coord, elem_1)| {
+                self.is_tree_visible(*coord, |(_, elem_2)| elem_2 >= *elem_1)
+            })
+        }
+
+        fn iter(&self) -> impl Iterator<Item = ((usize, usize), u8)> + '_ {
             (0..self.data.len()).map(|index| {
                 let elem = self.data[index];
                 let coord = self.index_to_coord(index);
@@ -28,7 +34,7 @@ mod forest {
             })
         }
 
-        pub fn iter_north(
+        fn iter_north(
             &self,
             from: (usize, usize),
         ) -> impl Iterator<Item = ((usize, usize), u8)> + '_ {
@@ -45,7 +51,7 @@ mod forest {
             }
         }
 
-        pub fn iter_south(
+        fn iter_south(
             &self,
             from: (usize, usize),
         ) -> impl Iterator<Item = ((usize, usize), u8)> + '_ {
@@ -62,7 +68,7 @@ mod forest {
             }
         }
 
-        pub fn iter_east(
+        fn iter_east(
             &self,
             from: (usize, usize),
         ) -> impl Iterator<Item = ((usize, usize), u8)> + '_ {
@@ -79,7 +85,7 @@ mod forest {
             }
         }
 
-        pub fn iter_west(
+        fn iter_west(
             &self,
             from: (usize, usize),
         ) -> impl Iterator<Item = ((usize, usize), u8)> + '_ {
@@ -105,6 +111,17 @@ mod forest {
         fn coord_to_index(&self, coord: (usize, usize)) -> usize {
             let (x, y) = coord;
             y * self.width + x
+        }
+
+        fn is_tree_visible(
+            &self,
+            coord: (usize, usize),
+            mut func: impl FnMut(((usize, usize), u8)) -> bool,
+        ) -> bool {
+            !self.iter_north(coord).any(&mut func)
+                || !self.iter_east(coord).any(&mut func)
+                || !self.iter_south(coord).any(&mut func)
+                || !self.iter_west(coord).any(&mut func)
         }
     }
 
@@ -141,22 +158,7 @@ mod forest {
 }
 
 fn part_1(input: &str) -> u32 {
-    let forest = input.parse::<Forest>().unwrap();
-    forest
-        .iter()
-        .filter(|(coord, elem_1)| is_tree_visible(&forest, *coord, |(_, elem_2)| elem_2 >= *elem_1))
-        .count() as u32
-}
-
-fn is_tree_visible(
-    forest: &Forest,
-    coord: (usize, usize),
-    mut func: impl FnMut(((usize, usize), u8)) -> bool,
-) -> bool {
-    !forest.iter_north(coord).any(&mut func)
-        || !forest.iter_east(coord).any(&mut func)
-        || !forest.iter_south(coord).any(&mut func)
-        || !forest.iter_west(coord).any(&mut func)
+    input.parse::<Forest>().unwrap().iter_visible().count() as u32
 }
 
 #[cfg(test)]
