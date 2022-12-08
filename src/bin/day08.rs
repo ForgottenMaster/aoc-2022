@@ -128,33 +128,19 @@ fn part_1(input: &str) -> u32 {
     let forest = input.parse::<Forest>().unwrap();
     forest
         .iter()
-        .filter(|(coord, elem_1)| {
-            if !forest
-                .iter_north(*coord)
-                .any(|(_, elem_2)| elem_2 >= *elem_1)
-            {
-                return true;
-            }
-
-            if !forest
-                .iter_east(*coord)
-                .any(|(_, elem_2)| elem_2 >= *elem_1)
-            {
-                return true;
-            }
-
-            if !forest
-                .iter_south(*coord)
-                .any(|(_, elem_2)| elem_2 >= *elem_1)
-            {
-                return true;
-            }
-
-            !forest
-                .iter_west(*coord)
-                .any(|(_, elem_2)| elem_2 >= *elem_1)
-        })
+        .filter(|(coord, elem_1)| is_tree_visible(&forest, *coord, |(_, elem_2)| elem_2 >= *elem_1))
         .count() as u32
+}
+
+fn is_tree_visible(
+    forest: &Forest,
+    coord: (usize, usize),
+    mut func: impl FnMut(((usize, usize), u8)) -> bool,
+) -> bool {
+    !forest.iter_north(coord).any(&mut func)
+        || !forest.iter_east(coord).any(&mut func)
+        || !forest.iter_south(coord).any(&mut func)
+        || !forest.iter_west(coord).any(&mut func)
 }
 
 #[cfg(test)]
