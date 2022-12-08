@@ -1,5 +1,6 @@
 use core::convert::Infallible;
 use core::str::FromStr;
+use itertools::Either;
 
 const INPUT: &str = include_str!("../input/day08.txt");
 
@@ -24,15 +25,12 @@ impl Forest {
         })
     }
 
-    fn iter_north(
-        &self,
-        from: (usize, usize),
-    ) -> Option<impl Iterator<Item = ((usize, usize), u8)> + '_> {
+    fn iter_north(&self, from: (usize, usize)) -> impl Iterator<Item = ((usize, usize), u8)> + '_ {
         let (x, y) = from;
         if y == 0 {
-            None
+            Either::Left(std::iter::empty())
         } else {
-            Some((0..=y - 1).rev().map(move |y| {
+            Either::Right((0..=y - 1).rev().map(move |y| {
                 let coord = (x, y);
                 let index = self.coord_to_index(coord);
                 let elem = self.data[index];
@@ -41,15 +39,12 @@ impl Forest {
         }
     }
 
-    fn iter_south(
-        &self,
-        from: (usize, usize),
-    ) -> Option<impl Iterator<Item = ((usize, usize), u8)> + '_> {
+    fn iter_south(&self, from: (usize, usize)) -> impl Iterator<Item = ((usize, usize), u8)> + '_ {
         let (x, y) = from;
         if y == self.height - 1 {
-            None
+            Either::Left(std::iter::empty())
         } else {
-            Some((y + 1..=self.height - 1).map(move |y| {
+            Either::Right((y + 1..=self.height - 1).map(move |y| {
                 let coord = (x, y);
                 let index = self.coord_to_index(coord);
                 let elem = self.data[index];
@@ -58,15 +53,12 @@ impl Forest {
         }
     }
 
-    fn iter_east(
-        &self,
-        from: (usize, usize),
-    ) -> Option<impl Iterator<Item = ((usize, usize), u8)> + '_> {
+    fn iter_east(&self, from: (usize, usize)) -> impl Iterator<Item = ((usize, usize), u8)> + '_ {
         let (x, y) = from;
         if x == self.width - 1 {
-            None
+            Either::Left(std::iter::empty())
         } else {
-            Some((x + 1..=self.width - 1).map(move |x| {
+            Either::Right((x + 1..=self.width - 1).map(move |x| {
                 let coord = (x, y);
                 let index = self.coord_to_index(coord);
                 let elem = self.data[index];
@@ -75,15 +67,12 @@ impl Forest {
         }
     }
 
-    fn iter_west(
-        &self,
-        from: (usize, usize),
-    ) -> Option<impl Iterator<Item = ((usize, usize), u8)> + '_> {
+    fn iter_west(&self, from: (usize, usize)) -> impl Iterator<Item = ((usize, usize), u8)> + '_ {
         let (x, y) = from;
         if x == 0 {
-            None
+            Either::Left(std::iter::empty())
         } else {
-            Some((0..=x - 1).rev().map(move |x| {
+            Either::Right((0..=x - 1).rev().map(move |x| {
                 let coord = (x, y);
                 let index = self.coord_to_index(coord);
                 let elem = self.data[index];
@@ -140,35 +129,30 @@ fn part_1(input: &str) -> u32 {
     forest
         .iter()
         .filter(|(coord, elem_1)| {
-            if let Some(mut iter) = forest.iter_north(*coord) {
-                if !iter.any(|(_, elem_2)| elem_2 >= *elem_1) {
-                    return true;
-                }
-            } else {
+            if !forest
+                .iter_north(*coord)
+                .any(|(_, elem_2)| elem_2 >= *elem_1)
+            {
                 return true;
             }
 
-            if let Some(mut iter) = forest.iter_east(*coord) {
-                if !iter.any(|(_, elem_2)| elem_2 >= *elem_1) {
-                    return true;
-                }
-            } else {
+            if !forest
+                .iter_east(*coord)
+                .any(|(_, elem_2)| elem_2 >= *elem_1)
+            {
                 return true;
             }
 
-            if let Some(mut iter) = forest.iter_south(*coord) {
-                if !iter.any(|(_, elem_2)| elem_2 >= *elem_1) {
-                    return true;
-                }
-            } else {
+            if !forest
+                .iter_south(*coord)
+                .any(|(_, elem_2)| elem_2 >= *elem_1)
+            {
                 return true;
             }
 
-            if let Some(mut iter) = forest.iter_west(*coord) {
-                !iter.any(|(_, elem_2)| elem_2 >= *elem_1)
-            } else {
-                true
-            }
+            !forest
+                .iter_west(*coord)
+                .any(|(_, elem_2)| elem_2 >= *elem_1)
         })
         .count() as u32
 }
