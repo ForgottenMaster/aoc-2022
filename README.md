@@ -25,7 +25,7 @@ cargo run --release --bin day01
 |[Day 6: Tuning Trouble](https://adventofcode.com/2022/day/6)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 7: No Space Left On Device](https://adventofcode.com/2022/day/7)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 8: Treetop Tree House](https://adventofcode.com/2022/day/8)|:heavy_check_mark:|:heavy_check_mark:|
-|[Day 9: Rope Bridge](https://adventofcode.com/2022/day/9)|:heavy_check_mark:|:x:|
+|[Day 9: Rope Bridge](https://adventofcode.com/2022/day/9)|:heavy_check_mark:|:heavy_check_mark:|
 |Day 10|:x:|:x:|
 |Day 11|:x:|:x:|
 |Day 12|:x:|:x:|
