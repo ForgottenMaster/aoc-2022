@@ -3,38 +3,68 @@ const INPUT: &str = include_str!("../input/day10.txt");
 #[cfg(not(tarpaulin))]
 fn main() {
     println!("Part 1 => {}", part_1(INPUT));
+    println!("Part 2 => \n{}", part_2(INPUT));
 }
 
 fn part_1(input: &str) -> i32 {
-    input
-        .trim()
-        .lines()
-        .scan((1_i32, 1), |(previous, current), line| {
-            let line = line.trim();
-            let (delta, cycles) = if line == "noop" {
-                (0, 1)
-            } else if let Some(delta) = line.strip_prefix("addx ") {
-                (delta.parse().unwrap(), 2)
-            } else {
-                unimplemented!()
-            };
-            *previous = *current;
-            *current += delta;
-            Some((*previous, *current, cycles))
-        })
-        .flat_map(|(previous, current, cycles)| {
-            std::iter::repeat(previous)
-                .take(cycles - 1)
-                .chain(std::iter::once(current))
-        })
-        .enumerate()
-        .skip(18) // skip first 18 because we want the first signal strength AFTER The 19th cycle (during 20th cycle)
-        .step_by(40) // step by 40 each time
+    iterate_cycles(input)
         .map(|(index, register)| {
-            let during_cycle = index as i32 + 2; // index 18 is AFTER cycle 19, which is DURING cycle 20.
+            let during_cycle = index as i32 + 1; // index 19 is during cycle 20.
             during_cycle * register
         })
+        .skip(19) // skip first 19 because we want the first signal strength during 20th cycle
+        .step_by(40) // step by 40 each time
         .sum()
+}
+
+fn part_2(input: &str) -> String {
+    iterate_cycles(input)
+        .take(240)
+        .flat_map(|(index, register)| {
+            let x = (index % 40) as i32;
+            let optional_newline = if index > 0 && x == 0 {
+                Some('\n')
+            } else {
+                None
+            };
+            let pixel_char = if x >= register - 1 && x <= register + 1 {
+                '#'
+            } else {
+                '.'
+            };
+            optional_newline
+                .into_iter()
+                .chain(std::iter::once(pixel_char))
+        })
+        .collect()
+}
+
+fn iterate_cycles(input: &str) -> impl Iterator<Item = (usize, i32)> + '_ {
+    std::iter::once(1)
+        .chain(
+            input
+                .trim()
+                .lines()
+                .scan((1_i32, 1), |(previous, current), line| {
+                    let line = line.trim();
+                    let (delta, cycles) = if line == "noop" {
+                        (0, 1)
+                    } else if let Some(delta) = line.strip_prefix("addx ") {
+                        (delta.parse().unwrap(), 2)
+                    } else {
+                        unimplemented!()
+                    };
+                    *previous = *current;
+                    *current += delta;
+                    Some((*previous, *current, cycles))
+                })
+                .flat_map(|(previous, current, cycles)| {
+                    std::iter::repeat(previous)
+                        .take(cycles - 1)
+                        .chain(std::iter::once(current))
+                }),
+        )
+        .enumerate()
 }
 
 #[cfg(test)]
@@ -197,6 +227,23 @@ mod tests {
 
         // Act
         let output = part_1(INPUT);
+
+        // Assert
+        assert_eq!(output, EXPECTED);
+    }
+
+    #[test]
+    fn test_part_2() {
+        // Arrange
+        const EXPECTED: &str = "##..##..##..##..##..##..##..##..##..##..
+###...###...###...###...###...###...###.
+####....####....####....####....####....
+#####.....#####.....#####.....#####.....
+######......######......######......####
+#######.......#######.......#######.....";
+
+        // Act
+        let output = part_2(INPUT);
 
         // Assert
         assert_eq!(output, EXPECTED);
