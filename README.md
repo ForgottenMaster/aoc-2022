@@ -27,7 +27,7 @@ cargo run --release --bin day01
 |[Day 8: Treetop Tree House](https://adventofcode.com/2022/day/8)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 9: Rope Bridge](https://adventofcode.com/2022/day/9)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 10: Cathode-Ray Tube](https://adventofcode.com/2022/day/10)|:heavy_check_mark:|:heavy_check_mark:|
-|[Day 11: Monkey in the Middle](https://adventofcode.com/2022/day/11)|:heavy_check_mark:|:x:|
+|[Day 11: Monkey in the Middle](https://adventofcode.com/2022/day/11)|:heavy_check_mark:|:heavy_check_mark:|
 |Day 12|:x:|:x:|
 |Day 13|:x:|:x:|
 |Day 14|:x:|:x:|

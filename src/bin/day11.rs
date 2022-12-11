@@ -1,22 +1,28 @@
+type Number = u64;
+
 const INPUT: &str = include_str!("../input/day11.txt");
 
 #[cfg(not(tarpaulin))]
 fn main() {
     println!("Part 1 => {}", part_1(INPUT));
+    println!("Part 2 => {}", part_2(INPUT));
 }
 
-fn part_1(input: &str) -> u32 {
-    let mut counts = input
+fn part_1(input: &str) -> Number {
+    input
         .parse::<VecMonkey>()
         .unwrap()
-        .start_counting()
-        .run_rounds(20)
-        .unwrap();
-    counts.sort_by(|item_1, item_2| item_2.cmp(item_1));
-    counts[0] * counts[1]
+        .run_simulation(20, |value| value / 3)
+}
+
+fn part_2(input: &str) -> Number {
+    let monkeys = input.parse::<VecMonkey>().unwrap();
+    let modulus = monkeys.iter_test_divisible_by_values().product::<Number>();
+    monkeys.run_simulation(10_000, |value| value % modulus)
 }
 
 mod private {
+    use super::*;
     use core::convert::Infallible;
     use core::str::FromStr;
     use itertools::*;
@@ -24,12 +30,12 @@ mod private {
     #[derive(Debug)]
     enum Operation {
         Squared,
-        Add(u32),
-        Multiply(u32),
+        Add(Number),
+        Multiply(Number),
     }
 
     impl Operation {
-        fn apply(&self, item: u32) -> u32 {
+        fn apply(&self, item: Number) -> Number {
             match self {
                 Self::Squared => item * item,
                 Self::Add(amount) => item + amount,
@@ -57,24 +63,27 @@ mod private {
 
     #[derive(Debug)]
     pub struct Monkey {
-        items: Vec<u32>,
+        items: Vec<Number>,
         operation: Operation,
-        test_divisible_by: u32,
+        test_divisible_by: Number,
         if_true_throw_to_monkey: usize,
         if_false_throw_to_monkey: usize,
     }
 
     impl Monkey {
-        fn catch_item(&mut self, item: u32) {
+        fn catch_item(&mut self, item: Number) {
             self.items.push(item);
         }
 
-        fn try_throw_first_item(&mut self) -> Option<(u32, usize)> {
+        fn try_throw_first_item(
+            &mut self,
+            mut capping_func: impl FnMut(Number) -> Number,
+        ) -> Option<(Number, usize)> {
             if self.items.is_empty() {
                 None
             } else {
                 let item = self.items.remove(0);
-                let item = self.operation.apply(item) / 3;
+                let item = capping_func(self.operation.apply(item));
                 let throw_to_index = if item % self.test_divisible_by == 0 {
                     self.if_true_throw_to_monkey
                 } else {
@@ -138,11 +147,31 @@ mod private {
     }
 
     #[derive(Debug)]
-    pub struct VecMonkey(pub Vec<Monkey>);
+    pub struct VecMonkey(Vec<Monkey>);
 
     impl VecMonkey {
-        pub fn start_counting(self) -> MonkeyCounter {
-            MonkeyCounter::new(self.0)
+        pub fn run_simulation(
+            mut self,
+            rounds: u16,
+            mut capping_func: impl FnMut(Number) -> Number,
+        ) -> Number {
+            let mut counts = std::iter::repeat(0).take(self.0.len()).collect::<Vec<_>>();
+            (0..rounds).for_each(|_| {
+                (0..self.0.len()).for_each(|index| {
+                    while let Some((item, throw_to_index)) =
+                        self.0[index].try_throw_first_item(&mut capping_func)
+                    {
+                        counts[index] += 1;
+                        self.0[throw_to_index].catch_item(item);
+                    }
+                });
+            });
+            counts.sort_by(|item_1, item_2| item_2.cmp(item_1));
+            counts[0] * counts[1]
+        }
+
+        pub fn iter_test_divisible_by_values(&self) -> impl Iterator<Item = Number> + '_ {
+            self.0.iter().map(|monkey| monkey.test_divisible_by)
         }
     }
 
@@ -160,37 +189,6 @@ mod private {
                     .map(|(_, group)| group.collect())
                     .collect(),
             ))
-        }
-    }
-
-    pub struct MonkeyCounter {
-        monkeys: Vec<Monkey>,
-        counts: Vec<u32>,
-    }
-
-    impl MonkeyCounter {
-        fn new(monkeys: Vec<Monkey>) -> Self {
-            let counts = std::iter::repeat(0).take(monkeys.len()).collect();
-            Self { monkeys, counts }
-        }
-
-        pub fn run_rounds(mut self, rounds: u32) -> Self {
-            (0..rounds).for_each(|_| self.run_round());
-            self
-        }
-
-        fn run_round(&mut self) {
-            (0..self.monkeys.len()).for_each(|index| {
-                while let Some((item, throw_to_index)) = self.monkeys[index].try_throw_first_item()
-                {
-                    self.counts[index] += 1;
-                    self.monkeys[throw_to_index].catch_item(item);
-                }
-            });
-        }
-
-        pub fn unwrap(self) -> Vec<u32> {
-            self.counts
         }
     }
 }
@@ -233,10 +231,22 @@ mod tests {
     #[test]
     fn test_part_1() {
         // Arrange
-        const EXPECTED: u32 = 10605;
+        const EXPECTED: Number = 10605;
 
         // Act
         let output = part_1(INPUT);
+
+        // Assert
+        assert_eq!(output, EXPECTED);
+    }
+
+    #[test]
+    fn test_part_2() {
+        // Arrange
+        const EXPECTED: Number = 2713310158;
+
+        // Act
+        let output = part_2(INPUT);
 
         // Assert
         assert_eq!(output, EXPECTED);
