@@ -3,11 +3,29 @@ const INPUT: &str = include_str!("../input/day12.txt");
 #[cfg(not(tarpaulin))]
 fn main() {
     println!("Part 1 => {}", part_1(INPUT));
+    println!("Part 2 => {}", part_2(INPUT));
 }
 
 fn part_1(input: &str) -> u32 {
+    input
+        .parse::<Puzzle>()
+        .unwrap()
+        .get_fewest_steps_from_start()
+}
+
+fn part_2(input: &str) -> u32 {
     let puzzle = input.parse::<Puzzle>().unwrap();
-    puzzle.get_fewest_steps_from_start()
+    puzzle
+        .iter_cells()
+        .filter_map(|(coord, height)| {
+            if height == 0 {
+                Some(puzzle.get_fewest_steps_from(coord))
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap()
 }
 
 mod private {
@@ -26,6 +44,14 @@ mod private {
     }
 
     impl Puzzle {
+        pub fn iter_cells(&self) -> impl Iterator<Item = ((usize, usize), u32)> + '_ {
+            self.heightmap
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(index, height)| (self.index_to_coord(index), height))
+        }
+
         pub fn get_fewest_steps_from_start(&self) -> u32 {
             self.get_fewest_steps_from(self.start_coord)
         }
@@ -138,6 +164,12 @@ mod private {
             y * self.width + x
         }
 
+        fn index_to_coord(&self, index: usize) -> (usize, usize) {
+            let y = index / self.width;
+            let x = index % self.width;
+            (x, y)
+        }
+
         fn estimate_remaining_distance(&self, from_coord: (usize, usize)) -> u32 {
             let (from_x, from_y) = from_coord;
             let (to_x, to_y) = self.end_coord;
@@ -214,6 +246,18 @@ mod tests {
 
         // Act
         let output = part_1(INPUT);
+
+        // Assert
+        assert_eq!(output, EXPECTED);
+    }
+
+    #[test]
+    fn test_part_2() {
+        // Arrange
+        const EXPECTED: u32 = 29;
+
+        // Act
+        let output = part_2(INPUT);
 
         // Assert
         assert_eq!(output, EXPECTED);
