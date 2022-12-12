@@ -7,8 +7,7 @@ fn main() {
 
 fn part_1(input: &str) -> u32 {
     let puzzle = input.parse::<Puzzle>().unwrap();
-    let shortest_path = puzzle.run_pathfinding();
-    shortest_path.unwrap().len() as u32 - 1 // don't include the start node from the shortest path in move counting
+    puzzle.get_fewest_steps_from_start()
 }
 
 mod private {
@@ -27,11 +26,15 @@ mod private {
     }
 
     impl Puzzle {
-        pub fn run_pathfinding(&self) -> Option<Box<[(usize, usize)]>> {
+        pub fn get_fewest_steps_from_start(&self) -> u32 {
+            self.get_fewest_steps_from(self.start_coord)
+        }
+
+        pub fn get_fewest_steps_from(&self, coord: (usize, usize)) -> u32 {
             // open set is the set of discovered nodes that need to be evaluated
             // and possible expanded.
             let mut open_set = HashSet::with_capacity(self.heightmap.len());
-            open_set.insert(self.start_coord);
+            open_set.insert(coord);
 
             // mapping which, for a given node coordinate will give the coordinate
             // of the node immediately preceding it on the cheapest path from the start.
@@ -45,15 +48,12 @@ mod private {
                     (0..self.width).map(move |x_coord| ((x_coord, y_coord), u32::MAX))
                 })
                 .collect::<HashMap<_, _>>();
-            g_score.insert(self.start_coord, 0);
+            g_score.insert(coord, 0);
 
             // for a given node coordinate, f_score represents our current best guess to how cheap a complete path from
             // start to finish, through n could be.
             let mut f_score = g_score.clone();
-            f_score.insert(
-                self.start_coord,
-                self.estimate_remaining_distance(self.start_coord),
-            );
+            f_score.insert(coord, self.estimate_remaining_distance(coord));
 
             // while there are more nodes to expand.
             while !open_set.is_empty() {
@@ -72,7 +72,7 @@ mod private {
 
                 // if the current lowest is in fact the end point, we're done.
                 if current == self.end_coord {
-                    return Some(reconstruct_path(came_from, current));
+                    return get_steps_taken(came_from, current);
                 }
 
                 // otherwise remove current from the open set to expand it.
@@ -94,7 +94,7 @@ mod private {
             }
 
             // failed to find any valid path from start to end.
-            None
+            u32::MAX
         }
 
         fn get_neighbor_iter(
@@ -147,20 +147,16 @@ mod private {
         }
     }
 
-    fn reconstruct_path(
+    fn get_steps_taken(
         came_from: HashMap<(usize, usize), (usize, usize)>,
         mut current: (usize, usize),
-    ) -> Box<[(usize, usize)]> {
-        let mut path = Vec::with_capacity(came_from.len());
-        path.push(current);
+    ) -> u32 {
+        let mut steps_taken = 0;
         while let Some(came_from) = came_from.get(&current) {
             current = *came_from;
-            path.push(current);
+            steps_taken += 1;
         }
-        path.into_iter()
-            .rev()
-            .collect::<Vec<_>>()
-            .into_boxed_slice()
+        steps_taken
     }
 
     impl FromStr for Puzzle {
