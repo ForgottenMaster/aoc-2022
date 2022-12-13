@@ -29,7 +29,7 @@ cargo run --release --bin day01
 |[Day 10: Cathode-Ray Tube](https://adventofcode.com/2022/day/10)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 11: Monkey in the Middle](https://adventofcode.com/2022/day/11)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 12: Hill Climbing Algorithm](https://adventofcode.com/2022/day/12)|:heavy_check_mark:|:heavy_check_mark:|
-|Day 13|:x:|:x:|
+|[Day 13: Distress Signal](https://adventofcode.com/2022/day/13)|:heavy_check_mark:|:x:|
 |Day 14|:x:|:x:|
 |Day 15|:x:|:x:|
 |Day 16|:x:|:x:|
