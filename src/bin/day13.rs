@@ -6,6 +6,7 @@ const INPUT: &str = include_str!("../input/day13.txt");
 #[cfg(not(tarpaulin))]
 fn main() {
     println!("Part 1 => {}", part_1(INPUT));
+    println!("Part 2 => {}", part_2(INPUT));
 }
 
 #[derive(Debug, PartialEq)]
@@ -16,23 +17,23 @@ enum Token {
     Number(u32),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum Element {
     Integer(u32),
     List(Box<[Element]>),
 }
 
-impl PartialOrd for Element {
-    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
+impl Ord for Element {
+    fn cmp(&self, rhs: &Self) -> Ordering {
         match (self, rhs) {
             (Self::Integer(self_integer), Self::Integer(rhs_integer)) => {
-                self_integer.partial_cmp(rhs_integer)
+                self_integer.cmp(rhs_integer)
             }
             (Self::Integer(_), rhs) => {
-                Self::List(vec![(*self).clone()].into_boxed_slice()).partial_cmp(rhs)
+                Self::List(vec![(*self).clone()].into_boxed_slice()).cmp(rhs)
             }
             (_, rhs @ Self::Integer(_)) => {
-                self.partial_cmp(&Self::List(vec![(*rhs).clone()].into_boxed_slice()))
+                self.cmp(&Self::List(vec![(*rhs).clone()].into_boxed_slice()))
             }
             (Self::List(self_list), Self::List(rhs_list)) => {
                 let (self_len, rhs_len) = (self_list.len(), rhs_list.len());
@@ -41,20 +42,25 @@ impl PartialOrd for Element {
                     if let (Some(self_element), Some(rhs_element)) =
                         (self_list.get(i), rhs_list.get(i))
                     {
-                        match self_element.partial_cmp(rhs_element).unwrap() {
-                            Ordering::Less => return Some(Ordering::Less),
-                            Ordering::Greater => return Some(Ordering::Greater),
-                            Ordering::Equal => continue,
+                        let ordering = self_element.cmp(rhs_element);
+                        if ordering != Ordering::Equal {
+                            return ordering;
                         }
                     } else if self_len < rhs_len {
-                        return Some(Ordering::Less);
+                        return Ordering::Less;
                     } else if self_len > rhs_len {
-                        return Some(Ordering::Greater);
+                        return Ordering::Greater;
                     }
                 }
-                Some(Ordering::Equal)
+                Ordering::Equal
             }
         }
+    }
+}
+
+impl PartialOrd for Element {
+    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
+        Some(self.cmp(rhs))
     }
 }
 
@@ -75,6 +81,35 @@ fn part_1(input: &str) -> usize {
         .enumerate()
         .filter_map(|(index, is_correct)| if is_correct { Some(index + 1) } else { None })
         .sum()
+}
+
+fn part_2(input: &str) -> usize {
+    let mut elements = input
+        .trim()
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() {
+                None
+            } else {
+                Some(parse_input(line))
+            }
+        })
+        .collect::<Vec<_>>();
+    let markers = vec![parse_input("[[2]]"), parse_input("[[6]]")];
+    elements.extend(markers.iter().cloned());
+    elements.sort();
+    elements
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, element)| {
+            if markers.contains(&element) {
+                Some(index + 1)
+            } else {
+                None
+            }
+        })
+        .product()
 }
 
 fn parse_input(input: &str) -> Element {
@@ -405,6 +440,18 @@ mod tests {
 
         // Act
         let output = part_1(INPUT);
+
+        // Assert
+        assert_eq!(output, EXPECTED);
+    }
+
+    #[test]
+    fn test_part_2() {
+        // Arrange
+        const EXPECTED: usize = 140;
+
+        // Act
+        let output = part_2(INPUT);
 
         // Assert
         assert_eq!(output, EXPECTED);
