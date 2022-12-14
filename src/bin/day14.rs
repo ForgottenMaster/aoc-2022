@@ -4,27 +4,141 @@ use core::{
     str::FromStr,
 };
 
+const INPUT: &str = include_str!("../input/day14.txt");
+
 #[cfg(not(tarpaulin))]
-fn main() {}
+fn main() {
+    println!("Part 1 => {}", part_1(INPUT));
+}
+
+fn part_1(input: &str) -> u32 {
+    let mut cave = input.trim().parse::<Cave>().unwrap();
+    let mut counter = 0;
+    loop {
+        match cave.drop_one_grain() {
+            StepResult::Abort => break,
+            StepResult::Rest => counter += 1,
+            _ => unreachable!(),
+        }
+    }
+    counter
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 
+#[derive(Clone, PartialEq)]
 enum Element {
     Rock,
     Air,
     Spawner,
+    Sand,
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+#[derive(PartialEq)]
+enum StepResult {
+    Continue,
+    Abort,
+    Rest,
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 struct Cave {
     data: Box<[Element]>,
-    dims: (usize, usize),
+    stride: usize,
+    spawner_index: usize,
+    current_grain_index: Option<usize>,
+}
+
+impl Cave {
+    fn step(&mut self) -> StepResult {
+        if let Some(old_grain_index) = self.current_grain_index {
+            self.current_grain_index = None;
+            self.data[old_grain_index] = if old_grain_index == self.spawner_index {
+                Element::Spawner
+            } else {
+                Element::Air
+            };
+            let old_grain_x = old_grain_index % self.stride;
+            let new_grain_index = old_grain_index + self.stride;
+
+            // abort if straight down takes us out of the simulation zone.
+            if new_grain_index >= self.data.len() {
+                return StepResult::Abort;
+            }
+
+            // if straight down is free then move there.
+            if self.data[new_grain_index] == Element::Air {
+                self.current_grain_index = Some(new_grain_index);
+                self.data[new_grain_index] = Element::Sand;
+                return StepResult::Continue;
+            }
+
+            // if the previous grain x is 0 then we have to abort.
+            if old_grain_x == 0 {
+                return StepResult::Abort;
+            }
+            let new_grain_index = new_grain_index - 1;
+
+            // if the space to the left is free then move there.
+            if self.data[new_grain_index] == Element::Air {
+                self.current_grain_index = Some(new_grain_index);
+                self.data[new_grain_index] = Element::Sand;
+                return StepResult::Continue;
+            }
+
+            // if the previous grain x is stride-1 then we have to abort.
+            if old_grain_x == self.stride - 1 {
+                return StepResult::Abort;
+            }
+            let new_grain_index = new_grain_index + 2;
+
+            // if the space to the right is free then move there.
+            if self.data[new_grain_index] == Element::Air {
+                self.current_grain_index = Some(new_grain_index);
+                self.data[new_grain_index] = Element::Sand;
+                StepResult::Continue
+            } else {
+                self.data[old_grain_index] = Element::Sand;
+                StepResult::Rest
+            }
+        } else {
+            self.current_grain_index = Some(self.spawner_index);
+            self.data[self.spawner_index] = Element::Sand;
+            StepResult::Continue
+        }
+    }
+
+    fn drop_one_grain(&mut self) -> StepResult {
+        loop {
+            match self.step() {
+                r @ (StepResult::Rest | StepResult::Abort) => break r,
+                _ => continue,
+            }
+        }
+    }
 }
 
 impl Display for Cave {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        todo!()
+        for i in 0..self.data.len() {
+            if i != 0 && i % self.stride == 0 {
+                writeln!(f)?;
+            }
+            write!(
+                f,
+                "{}",
+                match self.data[i] {
+                    Element::Rock => '#',
+                    Element::Air => '.',
+                    Element::Spawner => '+',
+                    Element::Sand => 'o',
+                }
+            )?;
+        }
+        Ok(())
     }
 }
 
@@ -32,7 +146,40 @@ impl FromStr for Cave {
     type Err = Infallible;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        todo!()
+        let descriptors = input.parse::<RockDescriptors>().unwrap();
+        let spawner_position = (500, 0);
+        let bounds = descriptors.bounds().encapsulate(spawner_position);
+        let min = bounds.min;
+        let spawner_position = (spawner_position.0 - min.0, spawner_position.1 - min.1);
+        let dims = bounds.dims();
+        let total = dims.0 * dims.1;
+        let mut data = std::iter::repeat(Element::Air)
+            .take(total)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        let stride = dims.0;
+        let spawner_index = spawner_position.1 * stride + spawner_position.0;
+        data[spawner_index] = Element::Spawner;
+        descriptors
+            .iter_segments()
+            .for_each(|((start_x, start_y), (end_x, end_y))| {
+                let (min_x, min_y) = (std::cmp::min(start_x, end_x), std::cmp::min(start_y, end_y));
+                let (max_x, max_y) = (std::cmp::max(start_x, end_x), std::cmp::max(start_y, end_y));
+                (min_x..=max_x).for_each(|x| {
+                    (min_y..=max_y).for_each(|y| {
+                        let (x, y) = (x - min.0, y - min.1);
+                        let index = y * stride + x;
+                        data[index] = Element::Rock;
+                    });
+                });
+            });
+        let current_grain_index = None;
+        Ok(Self {
+            data,
+            stride,
+            spawner_index,
+            current_grain_index,
+        })
     }
 }
 
@@ -47,7 +194,7 @@ impl FromStr for Coordinate {
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let mut iter = input
             .trim()
-            .split(",")
+            .split(',')
             .map(|elem| elem.trim().parse().unwrap());
         Ok(Self((iter.next().unwrap(), iter.next().unwrap())))
     }
@@ -57,6 +204,12 @@ impl FromStr for Coordinate {
 
 #[derive(Debug, PartialEq)]
 struct RockDescriptor(Box<[Coordinate]>);
+
+impl RockDescriptor {
+    fn iter_segments(&self) -> impl Iterator<Item = ((usize, usize), (usize, usize))> + '_ {
+        self.0.windows(2).map(|slice| (slice[0].0, slice[1].0))
+    }
+}
 
 impl FromStr for RockDescriptor {
     type Err = Infallible;
@@ -86,6 +239,12 @@ impl RockDescriptors {
             .fold(Bounds::default(), |bounds, coordinate| {
                 bounds.encapsulate(coordinate.0)
             })
+    }
+
+    fn iter_segments(&self) -> impl Iterator<Item = ((usize, usize), (usize, usize))> + '_ {
+        self.0
+            .iter()
+            .flat_map(|descriptor| descriptor.iter_segments())
     }
 }
 
@@ -279,13 +438,85 @@ mod tests {
 ........#.
 ........#.
 #########.";
-        const EXPECTED_DIMS: (usize, usize) = (10, 10);
+        const EXPECTED_STRIDE: usize = 10;
 
         // Act
         let output = INPUT.parse::<Cave>().unwrap();
 
         // Assert
         assert_eq!(format!("{}", output), EXPECTED_DISPLAY_STRING);
-        assert_eq!(output.dims, EXPECTED_DIMS);
+        assert_eq!(output.stride, EXPECTED_STRIDE);
+    }
+
+    #[test]
+    fn test_drop_one_grain() {
+        // Arrange
+        const INPUT: &str = "
+            498,4 -> 498,6 -> 496,6
+            503,4 -> 502,4 -> 502,9 -> 494,9
+            ";
+        const EXPECTED: &str = "......+...
+..........
+..........
+..........
+....#...##
+....#...#.
+..###...#.
+........#.
+......o.#.
+#########.";
+        let mut cave = INPUT.parse::<Cave>().unwrap();
+
+        // Act
+        cave.drop_one_grain();
+        let output = format!("{}", cave);
+
+        // Assert
+        assert_eq!(output, EXPECTED);
+    }
+
+    #[test]
+    fn test_drop_twenty_two_grains() {
+        // Arrange
+        const INPUT: &str = "
+            498,4 -> 498,6 -> 496,6
+            503,4 -> 502,4 -> 502,9 -> 494,9
+            ";
+        const EXPECTED: &str = "......+...
+..........
+......o...
+.....ooo..
+....#ooo##
+....#ooo#.
+..###ooo#.
+....oooo#.
+...ooooo#.
+#########.";
+        let mut cave = INPUT.parse::<Cave>().unwrap();
+
+        // Act
+        (0..22).for_each(|_| {
+            cave.drop_one_grain();
+        });
+        let output = format!("{}", cave);
+
+        // Assert
+        assert_eq!(output, EXPECTED);
+    }
+
+    #[test]
+    fn test_part_1() {
+        // Arrange
+        const INPUT: &str = "
+            498,4 -> 498,6 -> 496,6
+            503,4 -> 502,4 -> 502,9 -> 494,9
+            ";
+        const EXPECTED: u32 = 24;
+
+        // Act
+        let output = part_1(INPUT);
+
+        // Assert
+        assert_eq!(output, EXPECTED);
     }
 }
