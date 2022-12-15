@@ -1,3 +1,5 @@
+use itertools::*;
+
 const INPUT: &str = include_str!("../input/day15.txt");
 
 #[cfg(not(tarpaulin))]
@@ -6,28 +8,62 @@ fn main() {
 }
 
 fn part_1(input: &str, y: i32) -> u32 {
-    let (sensors, min_x, max_x) = get_sensor_data(input);
-    count_invalid_spaces(&sensors, y, min_x, max_x)
+    let sensors = get_sensor_data(input);
+    let (min_x, max_x) = sensors
+        .iter()
+        .fold((i32::MAX, i32::MIN), |(min_x, max_x), sensor| {
+            let candidate_min_x = sensor.sensor_pos.0 - sensor.distance as i32;
+            let candidate_max_x = sensor.sensor_pos.0 + sensor.distance as i32;
+            (
+                std::cmp::min(min_x, candidate_min_x),
+                std::cmp::max(max_x, candidate_max_x),
+            )
+        });
+    (min_x..=max_x)
+        .filter_map(|x| {
+            let coord = (x, y);
+            if !sensors
+                .iter()
+                .any(|sensor| sensor.sensor_pos == coord || sensor.beacon_pos == coord)
+                && sensors.iter().any(|sensor| {
+                    get_manhattan_distance(sensor.sensor_pos, coord) <= sensor.distance
+                })
+            {
+                Some(())
+            } else {
+                None
+            }
+        })
+        .count() as u32
 }
 
-fn count_invalid_spaces(sensors: &[SensorData], y: i32, min_x: i32, max_x: i32) -> u32 {
-    (min_x..=max_x).fold(0, |count, x| {
-        let coord = (x, y);
-        if coord_is_invalid_for_all_sensors(sensors, coord) {
-            count + 1
+fn _perimeter_coordinate_iter(
+    center_point: (i32, i32),
+    vertical_deviation: i32,
+    radius: i32,
+) -> impl Iterator<Item = ((i32, i32), (i32, i32))> {
+    let vertical_deviation = std::cmp::min(vertical_deviation, radius);
+    (0..=vertical_deviation).flat_map(move |vertical_deviation| {
+        let min_x = center_point.0 - radius + vertical_deviation;
+        let max_x = center_point.0 + radius - vertical_deviation;
+        if vertical_deviation == 0 {
+            Either::Left(std::iter::once((
+                (min_x, center_point.1),
+                (max_x, center_point.1),
+            )))
         } else {
-            count
+            Either::Right(
+                std::iter::once((
+                    (min_x, center_point.1 - vertical_deviation),
+                    (max_x, center_point.1 - vertical_deviation),
+                ))
+                .chain(std::iter::once((
+                    (min_x, center_point.1 + vertical_deviation),
+                    (max_x, center_point.1 + vertical_deviation),
+                ))),
+            )
         }
     })
-}
-
-fn coord_is_invalid_for_all_sensors(sensors: &[SensorData], coord: (i32, i32)) -> bool {
-    // if it's any beacon coordinate then it can't be invalid.
-    // otherwise it needs to be within range of one sensor to be invalid.
-    !sensors.iter().any(|sensor| sensor.beacon_pos == coord)
-        && sensors
-            .iter()
-            .any(|sensor| get_manhattan_distance(sensor.sensor_pos, coord) <= sensor.distance)
 }
 
 #[derive(Debug)]
@@ -37,19 +73,13 @@ struct SensorData {
     distance: u32,
 }
 
-fn get_sensor_data(input: &str) -> (Vec<SensorData>, i32, i32) {
-    let data = input.trim().lines().map(process_line).collect::<Vec<_>>();
-    let (min_x, max_x) = data
-        .iter()
-        .fold((i32::MAX, i32::MIN), |(min_x, max_x), data| {
-            let candidate_min_x = data.sensor_pos.0 - data.distance as i32;
-            let candidate_max_x = data.sensor_pos.0 + data.distance as i32;
-            (
-                std::cmp::min(min_x, candidate_min_x),
-                std::cmp::max(max_x, candidate_max_x),
-            )
-        });
-    (data, min_x, max_x)
+fn get_sensor_data(input: &str) -> Box<[SensorData]> {
+    input
+        .trim()
+        .lines()
+        .map(process_line)
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
 }
 
 fn process_line(input: &str) -> SensorData {
