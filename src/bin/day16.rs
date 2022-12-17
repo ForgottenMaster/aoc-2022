@@ -1,6 +1,9 @@
+/// I'm too stupid to be able to solve this puzzle on my own so after a day of banging my head against it
+/// I set out to look at hints. However this solution is basically the one described in this YouTube video
+/// so credit where credit's due: https://www.youtube.com/watch?v=bLMj50cpOug
 use {
     petgraph::{algo::astar, graph::NodeIndex, Direction, Graph},
-    std::collections::{BTreeMap, BTreeSet},
+    std::collections::BTreeMap,
 };
 
 const INPUT: &str = include_str!("../input/day16.txt");
@@ -15,32 +18,47 @@ fn main() {
 
 fn part_1(input: &str) -> u32 {
     let graph = extract_node_graph(input);
-    let mut opened = BTreeSet::new();
     let starting_node = get_node_index("AA", &graph).unwrap();
-    opened.insert(starting_node);
+    let opened = 0;
     let mut cache = BTreeMap::new();
     calculate_maximum_total_flow(&graph, opened, &mut cache, 30, starting_node)
 }
 
-fn part_2(_input: &str) -> u32 {
-    todo!()
+fn part_2(input: &str) -> u32 {
+    let graph = extract_node_graph(input);
+    let starting_node = get_node_index("AA", &graph).unwrap();
+    let mut cache = BTreeMap::new();
+    (0..=u16::MAX)
+        .map(|opened| {
+            calculate_maximum_total_flow(&graph, opened, &mut cache, 26, starting_node)
+                + calculate_maximum_total_flow(
+                    &graph,
+                    u16::MAX ^ opened,
+                    &mut cache,
+                    26,
+                    starting_node,
+                )
+        })
+        .max()
+        .unwrap()
 }
 
 fn calculate_maximum_total_flow(
     graph: &GraphType,
-    opened: BTreeSet<NodeIndex>,
-    cache: &mut BTreeMap<(BTreeSet<NodeIndex>, NodeIndex, u32), u32>,
+    opened: u16,
+    cache: &mut BTreeMap<(u16, NodeIndex, u32), u32>,
     time_remaining: u32,
     current_node: NodeIndex,
 ) -> u32 {
-    let cache_key = (opened.clone(), current_node, time_remaining);
+    let cache_key = (opened, current_node, time_remaining);
     if let Some(value) = cache.get(&cache_key) {
         *value
     } else {
         let max = graph
             .neighbors_directed(current_node, Direction::Outgoing)
             .filter_map(|node| {
-                if opened.contains(&node) {
+                let node_mask = 1 << node.index();
+                if opened & node_mask != 0 {
                     None
                 } else {
                     let distance = graph[graph.find_edge(current_node, node).unwrap()];
@@ -52,8 +70,7 @@ fn calculate_maximum_total_flow(
                 }
             })
             .fold(0, |max, (node, time_to_open)| {
-                let mut opened = opened.clone();
-                opened.insert(node);
+                let opened = opened | 1 << node.index();
                 let time_remaining = time_remaining - time_to_open;
                 std::cmp::max(
                     max,
