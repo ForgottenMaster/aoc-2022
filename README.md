@@ -31,8 +31,8 @@ cargo run --release --bin day01
 |[Day 12: Hill Climbing Algorithm](https://adventofcode.com/2022/day/12)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 13: Distress Signal](https://adventofcode.com/2022/day/13)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 14: Regolith Reservoir](https://adventofcode.com/2022/day/14)|:heavy_check_mark:|:heavy_check_mark:|
-|[Day 15: Beacon Exclusion Zone](https://adventofcode.com/2022/day/15)|:heavy_check_mark:|:x:|
-|Day 16|:x:|:x:|
+|[Day 15: Beacon Exclusion Zone](https://adventofcode.com/2022/day/15)|:heavy_check_mark:|:heavy_check_mark:|
+|[Day 16: Proboscidea Volcanium](https://adventofcode.com/2022/day/16)|:heavy_check_mark:|:x:|
 |Day 17|:x:|:x:|
 |Day 18|:x:|:x:|
 |Day 19|:x:|:x:|
