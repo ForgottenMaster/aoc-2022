@@ -24,7 +24,7 @@ fn part_2(input: &str) -> u64 {
     // calculate results of complete cycles.
     let total_frozen_rocks_so_far =
         number_of_frozen_rocks_at_cycle_detection + number_of_frozen_rocks_between_cycles;
-    let remaining_rocks_to_freeze = 1000000000000 - total_frozen_rocks_so_far as u64;
+    let remaining_rocks_to_freeze = 1000000000000 - total_frozen_rocks_so_far;
     let cycles_remaining = remaining_rocks_to_freeze / number_of_frozen_rocks_between_cycles;
     let total_frozen_rocks_so_far =
         total_frozen_rocks_so_far + cycles_remaining * number_of_frozen_rocks_between_cycles;
@@ -87,11 +87,11 @@ mod private {
             },
         ];
 
-        pub fn block_sequence_iter() -> impl Iterator<Item = Block> {
-            BLOCK_SEQUENCE.iter().copied().cycle()
+        pub fn block_sequence_iter() -> impl Iterator<Item = (usize, Block)> {
+            BLOCK_SEQUENCE.iter().copied().enumerate().cycle()
         }
 
-        #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+        #[derive(Clone, Copy, Debug)]
         pub struct Block {
             rock_deltas: [Option<(usize, usize)>; 5], // the local x and y offsets from the bottom left coordinate of all rock spaces
             width: usize,                             // the width of the block
@@ -182,8 +182,8 @@ mod private {
             highest_block: usize,
             state: Vec<Vec<Space>>,
             frozen_column_height_offsets: Vec<usize>, // the height difference for each column between the top bit of rock and the highest block
-            last_pulled_block: Option<Block>,
-            last_pulled_jet_direction: Option<Direction>,
+            last_pulled_block_index: usize,
+            last_pulled_jet_direction_index: usize,
         }
 
         impl<BlockIter, JetIter> Chamber<BlockIter, JetIter> {
@@ -198,20 +198,18 @@ mod private {
                     highest_block: 0,
                     state: vec![],
                     frozen_column_height_offsets: vec![],
-                    last_pulled_block: None,
-                    last_pulled_jet_direction: None,
+                    last_pulled_block_index: 0,
+                    last_pulled_jet_direction_index: 0,
                 }
             }
         }
 
         impl<BlockIter, JetIter> Chamber<BlockIter, JetIter>
         where
-            BlockIter: Iterator<Item = Block>,
-            JetIter: Iterator<Item = Direction>,
+            BlockIter: Iterator<Item = (usize, Block)>,
+            JetIter: Iterator<Item = (usize, Direction)>,
         {
-            pub fn run_until_cycle_detected(
-                &mut self,
-            ) -> (u64, (Vec<usize>, Option<Block>, Option<Direction>), usize) {
+            pub fn run_until_cycle_detected(&mut self) -> (u64, (Vec<usize>, usize, usize), usize) {
                 let mut key_set = HashSet::new();
                 let mut frozen_rocks = 0;
                 loop {
@@ -219,8 +217,8 @@ mod private {
                         frozen_rocks += 1;
                         let cycle_key = (
                             self.frozen_column_height_offsets.clone(),
-                            self.last_pulled_block,
-                            self.last_pulled_jet_direction,
+                            self.last_pulled_block_index,
+                            self.last_pulled_jet_direction_index,
                         );
                         if !key_set.insert(cycle_key.clone()) {
                             break (frozen_rocks, cycle_key, self.highest_block);
@@ -231,7 +229,7 @@ mod private {
 
             pub fn run_until_cycle_key_repeated(
                 &mut self,
-                cycle_key: (Vec<usize>, Option<Block>, Option<Direction>),
+                cycle_key: (Vec<usize>, usize, usize),
             ) -> (u64, usize) {
                 let mut key_set = HashSet::new();
                 key_set.insert(cycle_key);
@@ -241,8 +239,8 @@ mod private {
                         frozen_rocks += 1;
                         let cycle_key = (
                             self.frozen_column_height_offsets.clone(),
-                            self.last_pulled_block,
-                            self.last_pulled_jet_direction,
+                            self.last_pulled_block_index,
+                            self.last_pulled_jet_direction_index,
                         );
                         if !key_set.insert(cycle_key.clone()) {
                             break (frozen_rocks, self.highest_block);
@@ -324,8 +322,8 @@ mod private {
             }
 
             fn push_current_block(&mut self) {
-                let push_direction = self.jet_iter.next().unwrap();
-                self.last_pulled_jet_direction = Some(push_direction);
+                let (jet_index, push_direction) = self.jet_iter.next().unwrap();
+                self.last_pulled_jet_direction_index = jet_index;
                 let candidate_block_instance = self
                     .currently_falling
                     .as_ref()
@@ -343,8 +341,8 @@ mod private {
                     self.appearance_offset.0,
                     self.highest_block + self.appearance_offset.1,
                 );
-                let block = self.block_iter.next().unwrap();
-                self.last_pulled_block = Some(block.clone());
+                let (block_index, block) = self.block_iter.next().unwrap();
+                self.last_pulled_block_index = block_index;
                 let (_, block_height) = block.dims();
                 let chamber_height = spawn_position.1 + block_height + 1;
                 self.ensure_chamber_height(chamber_height);
@@ -384,8 +382,11 @@ mod private {
                     .field("appearance_offset", &self.appearance_offset)
                     .field("highest_block", &self.highest_block)
                     .field("state", &self.state)
-                    .field("last_pulled_block", &self.last_pulled_block)
-                    .field("last_pulled_jet_direction", &self.last_pulled_jet_direction)
+                    .field("last_pulled_block_index", &self.last_pulled_block_index)
+                    .field(
+                        "last_pulled_jet_direction_index",
+                        &self.last_pulled_jet_direction_index,
+                    )
                     .field(
                         "frozen_column_height_offsets",
                         &self.frozen_column_height_offsets,
@@ -404,13 +405,13 @@ mod private {
     }
 
     mod jets {
-        #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+        #[derive(Clone, Copy, Debug)]
         pub enum Direction {
             Left,
             Right,
         }
 
-        pub fn jet_sequence_iter(input: &str) -> impl Iterator<Item = Direction> {
+        pub fn jet_sequence_iter(input: &str) -> impl Iterator<Item = (usize, Direction)> {
             input
                 .trim()
                 .chars()
@@ -423,6 +424,7 @@ mod private {
                 })
                 .collect::<Vec<_>>()
                 .into_iter()
+                .enumerate()
                 .cycle()
         }
     }
