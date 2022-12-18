@@ -5,10 +5,40 @@ const INPUT: &str = include_str!("../input/day17.txt");
 #[cfg(not(tarpaulin))]
 fn main() {
     println!("Part 1 => {}", part_1(INPUT));
+    println!("Part 2 => {}", part_2(INPUT));
 }
 
 fn part_1(input: &str) -> usize {
-    Chamber::new(block_sequence_iter(), jet_sequence_iter(input)).run_simulation(2022)
+    Chamber::new(block_sequence_iter(), jet_sequence_iter(input)).run_until_n_blocks_frozen(2022)
+}
+
+fn part_2(input: &str) -> u64 {
+    let mut chamber = Chamber::new(block_sequence_iter(), jet_sequence_iter(input));
+    let (number_of_frozen_rocks_at_cycle_detection, cycle_key, tower_height_at_cycle_detection) =
+        chamber.run_until_cycle_detected();
+    let (number_of_frozen_rocks_between_cycles, tower_height_at_cycle_repetition) =
+        chamber.run_until_cycle_key_repeated(cycle_key);
+    let tower_height_delta_between_cycles =
+        tower_height_at_cycle_repetition - tower_height_at_cycle_detection;
+
+    // calculate results of complete cycles.
+    let total_frozen_rocks_so_far =
+        number_of_frozen_rocks_at_cycle_detection + number_of_frozen_rocks_between_cycles;
+    let remaining_rocks_to_freeze = 1000000000000 - total_frozen_rocks_so_far as u64;
+    let cycles_remaining = remaining_rocks_to_freeze / number_of_frozen_rocks_between_cycles;
+    let total_frozen_rocks_so_far =
+        total_frozen_rocks_so_far + cycles_remaining * number_of_frozen_rocks_between_cycles;
+    let tower_height_after_simulation = tower_height_at_cycle_repetition as u64
+        + cycles_remaining * tower_height_delta_between_cycles as u64;
+
+    // run standard simulation for outstanding rocks.
+    let remaining_rocks_to_freeze = 1000000000000 - total_frozen_rocks_so_far;
+    let tower_height_after_remaining =
+        chamber.run_until_n_blocks_frozen(remaining_rocks_to_freeze as usize);
+    let delta = tower_height_after_remaining - tower_height_at_cycle_repetition;
+
+    // total height is then the height after mathematical simulation plus the delta.
+    tower_height_after_simulation + delta as u64
 }
 
 mod private {
@@ -61,7 +91,7 @@ mod private {
             BLOCK_SEQUENCE.iter().copied().cycle()
         }
 
-        #[derive(Clone, Copy, Debug)]
+        #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
         pub struct Block {
             rock_deltas: [Option<(usize, usize)>; 5], // the local x and y offsets from the bottom left coordinate of all rock spaces
             width: usize,                             // the width of the block
@@ -119,7 +149,10 @@ mod private {
         use {
             super::blocks::{Block, BlockInstance},
             super::jets::Direction,
-            std::fmt::{Debug, Formatter, Result},
+            std::{
+                collections::HashSet,
+                fmt::{Debug, Formatter, Result},
+            },
         };
 
         #[derive(Clone, Debug, PartialEq)]
@@ -148,6 +181,9 @@ mod private {
             appearance_offset: (usize, usize),
             highest_block: usize,
             state: Vec<Vec<Space>>,
+            frozen_column_height_offsets: Vec<usize>, // the height difference for each column between the top bit of rock and the highest block
+            last_pulled_block: Option<Block>,
+            last_pulled_jet_direction: Option<Direction>,
         }
 
         impl<BlockIter, JetIter> Chamber<BlockIter, JetIter> {
@@ -161,6 +197,9 @@ mod private {
                     appearance_offset: (2, 3),
                     highest_block: 0,
                     state: vec![],
+                    frozen_column_height_offsets: vec![],
+                    last_pulled_block: None,
+                    last_pulled_jet_direction: None,
                 }
             }
         }
@@ -170,7 +209,49 @@ mod private {
             BlockIter: Iterator<Item = Block>,
             JetIter: Iterator<Item = Direction>,
         {
-            pub fn run_simulation(&mut self, until_after_frozen_rocks: usize) -> usize {
+            pub fn run_until_cycle_detected(
+                &mut self,
+            ) -> (u64, (Vec<usize>, Option<Block>, Option<Direction>), usize) {
+                let mut key_set = HashSet::new();
+                let mut frozen_rocks = 0;
+                loop {
+                    if let TickState::BlockFroze = self.tick() {
+                        frozen_rocks += 1;
+                        let cycle_key = (
+                            self.frozen_column_height_offsets.clone(),
+                            self.last_pulled_block,
+                            self.last_pulled_jet_direction,
+                        );
+                        if !key_set.insert(cycle_key.clone()) {
+                            break (frozen_rocks, cycle_key, self.highest_block);
+                        }
+                    }
+                }
+            }
+
+            pub fn run_until_cycle_key_repeated(
+                &mut self,
+                cycle_key: (Vec<usize>, Option<Block>, Option<Direction>),
+            ) -> (u64, usize) {
+                let mut key_set = HashSet::new();
+                key_set.insert(cycle_key);
+                let mut frozen_rocks = 0;
+                loop {
+                    if let TickState::BlockFroze = self.tick() {
+                        frozen_rocks += 1;
+                        let cycle_key = (
+                            self.frozen_column_height_offsets.clone(),
+                            self.last_pulled_block,
+                            self.last_pulled_jet_direction,
+                        );
+                        if !key_set.insert(cycle_key.clone()) {
+                            break (frozen_rocks, self.highest_block);
+                        }
+                    }
+                }
+            }
+
+            pub fn run_until_n_blocks_frozen(&mut self, until_after_frozen_rocks: usize) -> usize {
                 let mut frozen_rocks = 0;
                 while frozen_rocks < until_after_frozen_rocks {
                     if let TickState::BlockFroze = self.tick() {
@@ -220,6 +301,20 @@ mod private {
                         self.highest_block = std::cmp::max(self.highest_block, coord.1 + 1);
                         self.state[coord.1][coord.0] = Space::Rock;
                     });
+                    self.frozen_column_height_offsets = (0..self.width)
+                        .map(|x| {
+                            self.state
+                                .iter()
+                                .enumerate()
+                                .rev()
+                                .filter_map(|(index, line)| match line[x] {
+                                    Space::Empty => None,
+                                    Space::Rock => Some(self.highest_block - (index + 1)),
+                                })
+                                .next()
+                                .unwrap_or_default()
+                        })
+                        .collect();
                     TickState::BlockFroze
                 } else {
                     self.currently_falling =
@@ -229,11 +324,13 @@ mod private {
             }
 
             fn push_current_block(&mut self) {
+                let push_direction = self.jet_iter.next().unwrap();
+                self.last_pulled_jet_direction = Some(push_direction);
                 let candidate_block_instance = self
                     .currently_falling
                     .as_ref()
                     .unwrap()
-                    .apply_push(self.jet_iter.next().unwrap());
+                    .apply_push(push_direction);
                 if candidate_block_instance.iter_coords().all(|coord| {
                     coord.0 < self.width && self.state[coord.1][coord.0] == Space::Empty
                 }) {
@@ -247,6 +344,7 @@ mod private {
                     self.highest_block + self.appearance_offset.1,
                 );
                 let block = self.block_iter.next().unwrap();
+                self.last_pulled_block = Some(block.clone());
                 let (_, block_height) = block.dims();
                 let chamber_height = spawn_position.1 + block_height + 1;
                 self.ensure_chamber_height(chamber_height);
@@ -286,6 +384,12 @@ mod private {
                     .field("appearance_offset", &self.appearance_offset)
                     .field("highest_block", &self.highest_block)
                     .field("state", &self.state)
+                    .field("last_pulled_block", &self.last_pulled_block)
+                    .field("last_pulled_jet_direction", &self.last_pulled_jet_direction)
+                    .field(
+                        "frozen_column_height_offsets",
+                        &self.frozen_column_height_offsets,
+                    )
                     .finish()
             }
         }
@@ -300,7 +404,7 @@ mod private {
     }
 
     mod jets {
-        #[derive(Clone, Copy, Debug, PartialEq)]
+        #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
         pub enum Direction {
             Left,
             Right,
@@ -336,6 +440,19 @@ mod tests {
 
         // Act
         let output = part_1(INPUT);
+
+        // Assert
+        assert_eq!(output, EXPECTED);
+    }
+
+    #[test]
+    fn test_part_2() {
+        // Arrange
+        const INPUT: &str = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>";
+        const EXPECTED: u64 = 1514285714288;
+
+        // Act
+        let output = part_2(INPUT);
 
         // Assert
         assert_eq!(output, EXPECTED);
