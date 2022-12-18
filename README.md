@@ -33,7 +33,7 @@ cargo run --release --bin day01
 |[Day 14: Regolith Reservoir](https://adventofcode.com/2022/day/14)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 15: Beacon Exclusion Zone](https://adventofcode.com/2022/day/15)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 16: Proboscidea Volcanium](https://adventofcode.com/2022/day/16)|:heavy_check_mark:|:heavy_check_mark:|
-|Day 17|:x:|:x:|
+|[Day 17: Pyroclastic Flow](https://adventofcode.com/2022/day/17)|:heavy_check_mark:|:x:|
 |Day 18|:x:|:x:|
 |Day 19|:x:|:x:|
 |Day 20|:x:|:x:|

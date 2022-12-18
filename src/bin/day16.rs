@@ -1,6 +1,10 @@
 /// I'm too stupid to be able to solve this puzzle on my own so after a day of banging my head against it
 /// I set out to look at hints. However this solution is basically the one described in this YouTube video
 /// so credit where credit's due: https://www.youtube.com/watch?v=bLMj50cpOug
+///
+/// Note for efficiency in running the permutations of part 2, I've added an upper bound for the bitmask permutation
+/// value. Through experimentation the values of 10,334 for my real input, and 50 for the test input is sufficient.
+/// If this doesn't work on other inputs, we can increase the upper bound.
 use {
     petgraph::{algo::astar, graph::NodeIndex, Direction, Graph},
     std::collections::BTreeMap,
@@ -13,7 +17,7 @@ type GraphType<'a> = Graph<(&'a str, u32), u32>;
 #[cfg(not(tarpaulin))]
 fn main() {
     println!("Part 1 => {}", part_1(INPUT));
-    println!("Part 2 => {}", part_2(INPUT));
+    println!("Part 2 => {}", part_2(INPUT, 10_334));
 }
 
 fn part_1(input: &str) -> u32 {
@@ -24,12 +28,13 @@ fn part_1(input: &str) -> u32 {
     calculate_maximum_total_flow(&graph, opened, &mut cache, 30, starting_node)
 }
 
-fn part_2(input: &str) -> u32 {
+fn part_2(input: &str, upper_search_bound: u16) -> u32 {
     let graph = extract_node_graph(input);
     let starting_node = get_node_index("AA", &graph).unwrap();
     let mut cache = BTreeMap::new();
-    (0..=u16::MAX)
+    (0..=upper_search_bound)
         .map(|opened| {
+            let opened = opened | 1 << starting_node.index(); // assume starting node is always open
             calculate_maximum_total_flow(&graph, opened, &mut cache, 26, starting_node)
                 + calculate_maximum_total_flow(
                     &graph,
@@ -217,7 +222,7 @@ mod tests {
         const EXPECTED: u32 = 1707;
 
         // Act
-        let output = part_2(INPUT);
+        let output = part_2(INPUT, 50);
 
         // Assert
         assert_eq!(output, EXPECTED);
