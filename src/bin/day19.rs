@@ -6,6 +6,7 @@ const INPUT: &str = include_str!("../input/day19.txt");
 #[cfg(not(tarpaulin))]
 fn main() {
     println!("Part 1 => {}", part_1(INPUT));
+    println!("Part 2 => {}", part_2(INPUT));
 }
 
 fn part_1(input: &str) -> u32 {
@@ -34,7 +35,33 @@ fn part_1(input: &str) -> u32 {
         .sum()
 }
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+fn part_2(input: &str) -> u32 {
+    let blueprints = parse_blueprints(input);
+    blueprints
+        .par_iter()
+        .take(3)
+        .map(|blueprint| {
+            let mut cache = HashMap::new();
+            dfs(
+                GameState {
+                    ore_robot_count: 1,
+                    clay_robot_count: 0,
+                    obsidian_robot_count: 0,
+                    geode_robot_count: 0,
+                    ore_supply: 0,
+                    clay_supply: 0,
+                    obsidian_supply: 0,
+                    geode_supply: 0,
+                    time_remaining: 32,
+                    blueprint: *blueprint,
+                },
+                &mut cache,
+            )
+        })
+        .product()
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 struct Blueprint {
     id: u32,
     ore_robot_ore_cost: u32,
@@ -45,7 +72,7 @@ struct Blueprint {
     geode_robot_obsidian_cost: u32,
 }
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 struct GameState {
     ore_robot_count: u32,
     clay_robot_count: u32,
@@ -59,29 +86,57 @@ struct GameState {
     blueprint: Blueprint,
 }
 
-fn dfs(state: GameState, cache: &mut HashMap<GameState, u32>) -> u32 {
-    if let Some(entry) = cache.get(&state) {
-        *entry
-    } else if state.time_remaining == 0 {
+fn dfs(mut state: GameState, cache: &mut HashMap<GameState, u32>) -> u32 {
+    if state.time_remaining == 0 {
         state.geode_supply
     } else {
-        let max = state.geode_supply;
-        let max = std::cmp::max(max, get_max_if_building_geode_bot(state, cache));
-        let max = std::cmp::max(max, get_max_if_building_obsidian_bot(state, cache));
-        let max = std::cmp::max(max, get_max_if_building_clay_bot(state, cache));
-        let max = std::cmp::max(max, get_max_if_building_ore_bot(state, cache));
-        let max = std::cmp::max(max, get_max_if_building_no_bot(state, cache));
-        cache.insert(state, max);
-        max
+        state = prepare_cache_friendly_state(state);
+        if let Some(entry) = cache.get(&state) {
+            *entry
+        } else {
+            let max = state.geode_supply;
+            let max = std::cmp::max(max, get_max_if_building_geode_bot(state, cache));
+            let max = std::cmp::max(max, get_max_if_building_obsidian_bot(state, cache));
+            let max = std::cmp::max(max, get_max_if_building_clay_bot(state, cache));
+            let max = std::cmp::max(max, get_max_if_building_ore_bot(state, cache));
+            let max = std::cmp::max(max, get_max_if_building_no_bot(state, cache));
+            cache.insert(state, max);
+            max
+        }
     }
 }
 
 fn tick(mut state: GameState) -> GameState {
-    state.ore_supply += state.ore_robot_count;
-    state.clay_supply += state.clay_robot_count;
-    state.obsidian_supply += state.obsidian_robot_count;
+    state.ore_supply = state.ore_supply.saturating_add(state.ore_robot_count);
+    state.clay_supply = state.clay_supply.saturating_add(state.clay_robot_count);
+    state.obsidian_supply = state
+        .obsidian_supply
+        .saturating_add(state.obsidian_robot_count);
     state.geode_supply += state.geode_robot_count;
     state.time_remaining -= 1;
+    state
+}
+
+fn prepare_cache_friendly_state(mut state: GameState) -> GameState {
+    state.obsidian_supply = std::cmp::min(
+        state.obsidian_supply,
+        state.blueprint.geode_robot_obsidian_cost * 2,
+    );
+    state.clay_supply = std::cmp::min(
+        state.clay_supply,
+        state.blueprint.obsidian_robot_clay_cost * 2,
+    );
+    let max_ore_cost = std::cmp::max(
+        std::cmp::max(
+            std::cmp::max(
+                state.blueprint.ore_robot_ore_cost,
+                state.blueprint.clay_robot_ore_cost,
+            ),
+            state.blueprint.obsidian_robot_ore_cost,
+        ),
+        state.blueprint.geode_robot_ore_cost,
+    );
+    state.ore_supply = std::cmp::min(state.ore_supply, max_ore_cost * 2);
     state
 }
 
@@ -276,6 +331,31 @@ mod tests {
 
         // Act
         let output = part_1(INPUT);
+
+        // Assert
+        assert_eq!(output, EXPECTED);
+    }
+
+    #[test]
+    fn test_part_2() {
+        // Arrange
+        const INPUT: &str = "
+        Blueprint 1:
+          Each ore robot costs 4 ore.
+          Each clay robot costs 2 ore.
+          Each obsidian robot costs 3 ore and 14 clay.
+          Each geode robot costs 2 ore and 7 obsidian.
+          
+        Blueprint 2:
+          Each ore robot costs 2 ore.
+          Each clay robot costs 3 ore.
+          Each obsidian robot costs 3 ore and 8 clay.
+          Each geode robot costs 3 ore and 12 obsidian.
+        ";
+        const EXPECTED: u32 = 3472;
+
+        // Act
+        let output = part_2(INPUT);
 
         // Assert
         assert_eq!(output, EXPECTED);
