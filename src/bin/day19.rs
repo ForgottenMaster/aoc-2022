@@ -94,16 +94,58 @@ fn dfs(mut state: GameState, cache: &mut HashMap<GameState, u32>) -> u32 {
         if let Some(entry) = cache.get(&state) {
             *entry
         } else {
-            let max = state.geode_supply;
-            let max = std::cmp::max(max, get_max_if_building_geode_bot(state, cache));
-            let max = std::cmp::max(max, get_max_if_building_obsidian_bot(state, cache));
-            let max = std::cmp::max(max, get_max_if_building_clay_bot(state, cache));
-            let max = std::cmp::max(max, get_max_if_building_ore_bot(state, cache));
-            let max = std::cmp::max(max, get_max_if_building_no_bot(state, cache));
+            let mut max = state.geode_supply;
+
+            // Optimisation 1: Always build a geode bot when we can.
+            if should_try_geode_bot(&state) {
+                max = std::cmp::max(max, get_max_if_building_geode_bot(state, cache));
+            } else {
+                if should_try_obsidian_bot(&state) {
+                    max = std::cmp::max(max, get_max_if_building_obsidian_bot(state, cache));
+                }
+                if should_try_clay_bot(&state) {
+                    max = std::cmp::max(max, get_max_if_building_clay_bot(state, cache));
+                }
+                if should_try_ore_bot(&state) {
+                    max = std::cmp::max(max, get_max_if_building_ore_bot(state, cache));
+                }
+                max = std::cmp::max(max, get_max_if_building_no_bot(state, cache));
+            }
             cache.insert(state, max);
             max
         }
     }
+}
+
+fn should_try_geode_bot(state: &GameState) -> bool {
+    state.ore_supply >= state.blueprint.geode_robot_ore_cost
+        && state.obsidian_supply >= state.blueprint.geode_robot_obsidian_cost
+}
+
+fn should_try_obsidian_bot(state: &GameState) -> bool {
+    state.ore_supply >= state.blueprint.obsidian_robot_ore_cost
+        && state.clay_supply >= state.blueprint.obsidian_robot_clay_cost
+        && state.obsidian_robot_count < state.blueprint.geode_robot_obsidian_cost
+}
+
+fn should_try_clay_bot(state: &GameState) -> bool {
+    state.ore_supply >= state.blueprint.clay_robot_ore_cost
+        && state.obsidian_robot_count < state.blueprint.geode_robot_obsidian_cost
+        && state.clay_robot_count < state.blueprint.obsidian_robot_clay_cost
+}
+
+fn should_try_ore_bot(state: &GameState) -> bool {
+    let max_ore_cost = std::cmp::max(
+        std::cmp::max(
+            std::cmp::max(
+                state.blueprint.ore_robot_ore_cost,
+                state.blueprint.clay_robot_ore_cost,
+            ),
+            state.blueprint.obsidian_robot_ore_cost,
+        ),
+        state.blueprint.geode_robot_ore_cost,
+    );
+    state.ore_supply >= state.blueprint.ore_robot_ore_cost && state.ore_robot_count < max_ore_cost
 }
 
 fn tick(mut state: GameState) -> GameState {
@@ -141,72 +183,36 @@ fn prepare_cache_friendly_state(mut state: GameState) -> GameState {
 }
 
 fn get_max_if_building_geode_bot(mut state: GameState, cache: &mut HashMap<GameState, u32>) -> u32 {
-    if state.ore_supply >= state.blueprint.geode_robot_ore_cost
-        && state.obsidian_supply >= state.blueprint.geode_robot_obsidian_cost
-    {
-        state.ore_supply -= state.blueprint.geode_robot_ore_cost;
-        state.obsidian_supply -= state.blueprint.geode_robot_obsidian_cost;
-        state = tick(state);
-        state.geode_robot_count += 1;
-        dfs(state, cache)
-    } else {
-        state.geode_supply
-    }
+    state.ore_supply -= state.blueprint.geode_robot_ore_cost;
+    state.obsidian_supply -= state.blueprint.geode_robot_obsidian_cost;
+    state = tick(state);
+    state.geode_robot_count += 1;
+    dfs(state, cache)
 }
 
 fn get_max_if_building_obsidian_bot(
     mut state: GameState,
     cache: &mut HashMap<GameState, u32>,
 ) -> u32 {
-    if state.ore_supply >= state.blueprint.obsidian_robot_ore_cost
-        && state.clay_supply >= state.blueprint.obsidian_robot_clay_cost
-        && state.obsidian_robot_count < state.blueprint.geode_robot_obsidian_cost
-    {
-        state.ore_supply -= state.blueprint.obsidian_robot_ore_cost;
-        state.clay_supply -= state.blueprint.obsidian_robot_clay_cost;
-        state = tick(state);
-        state.obsidian_robot_count += 1;
-        dfs(state, cache)
-    } else {
-        state.geode_supply
-    }
+    state.ore_supply -= state.blueprint.obsidian_robot_ore_cost;
+    state.clay_supply -= state.blueprint.obsidian_robot_clay_cost;
+    state = tick(state);
+    state.obsidian_robot_count += 1;
+    dfs(state, cache)
 }
 
 fn get_max_if_building_clay_bot(mut state: GameState, cache: &mut HashMap<GameState, u32>) -> u32 {
-    if state.ore_supply >= state.blueprint.clay_robot_ore_cost
-        && state.obsidian_robot_count < state.blueprint.geode_robot_obsidian_cost
-        && state.clay_robot_count < state.blueprint.obsidian_robot_clay_cost
-    {
-        state.ore_supply -= state.blueprint.clay_robot_ore_cost;
-        state = tick(state);
-        state.clay_robot_count += 1;
-        dfs(state, cache)
-    } else {
-        state.geode_supply
-    }
+    state.ore_supply -= state.blueprint.clay_robot_ore_cost;
+    state = tick(state);
+    state.clay_robot_count += 1;
+    dfs(state, cache)
 }
 
 fn get_max_if_building_ore_bot(mut state: GameState, cache: &mut HashMap<GameState, u32>) -> u32 {
-    let max_ore_cost = std::cmp::max(
-        std::cmp::max(
-            std::cmp::max(
-                state.blueprint.ore_robot_ore_cost,
-                state.blueprint.clay_robot_ore_cost,
-            ),
-            state.blueprint.obsidian_robot_ore_cost,
-        ),
-        state.blueprint.geode_robot_ore_cost,
-    );
-    if state.ore_supply >= state.blueprint.ore_robot_ore_cost
-        && state.ore_robot_count < max_ore_cost
-    {
-        state.ore_supply -= state.blueprint.ore_robot_ore_cost;
-        state = tick(state);
-        state.ore_robot_count += 1;
-        dfs(state, cache)
-    } else {
-        state.geode_supply
-    }
+    state.ore_supply -= state.blueprint.ore_robot_ore_cost;
+    state = tick(state);
+    state.ore_robot_count += 1;
+    dfs(state, cache)
 }
 
 fn get_max_if_building_no_bot(state: GameState, cache: &mut HashMap<GameState, u32>) -> u32 {
