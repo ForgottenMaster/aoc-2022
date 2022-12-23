@@ -36,7 +36,7 @@ cargo run --release --bin day01
 |[Day 17: Pyroclastic Flow](https://adventofcode.com/2022/day/17)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 18: Boiling Boulders](https://adventofcode.com/2022/day/18)|:heavy_check_mark:|:heavy_check_mark:|
 |[Day 19: Not Enough Minerals](https://adventofcode.com/2022/day/19)|:heavy_check_mark:|:heavy_check_mark:|
-|Day 20|:x:|:x:|
+|[Day 20: Grove Positioning System](https://adventofcode.com/2022/day/20)|:heavy_check_mark:|:x:|
 |Day 21|:x:|:x:|
 |Day 22|:x:|:x:|
 |Day 23|:x:|:x:|
