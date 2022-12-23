@@ -6,12 +6,21 @@ fn main() {
 }
 
 fn part_1(input: &str) -> i32 {
-    let mut numbers = input
+    let numbers = parse_input(input);
+    let numbers = mix(numbers);
+    extract_answer(numbers)
+}
+
+fn parse_input(input: &str) -> Vec<i32> {
+    input
         .trim()
         .lines()
         .map(|line| line.trim().parse::<i32>().unwrap())
-        .enumerate()
-        .collect::<Vec<_>>();
+        .collect()
+}
+
+fn mix(numbers: Vec<i32>) -> Vec<i32> {
+    let mut numbers = numbers.into_iter().enumerate().collect::<Vec<_>>();
     (0..numbers.len()).for_each(|order_to_find| {
         let (index, number, order) = numbers
             .iter()
@@ -38,9 +47,12 @@ fn part_1(input: &str) -> i32 {
             numbers.insert(index as usize, (order, number));
         }
     });
+    numbers.into_iter().map(|(_, number)| number).collect()
+}
+
+fn extract_answer(numbers: Vec<i32>) -> i32 {
     numbers
         .into_iter()
-        .map(|(_, number)| number)
         .cycle()
         .skip_while(|number| *number != 0)
         .skip(1000)
